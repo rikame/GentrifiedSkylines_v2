@@ -1,114 +1,87 @@
 ﻿using System;
 using UnityEngine;
+using ColossalFramework;
 
 namespace GentrifiedSkylines.Detours
 {
     public class Leg
     {
-        private float deltaX = 0;
-        private float deltaZ = 0;
+        private Vector3 initialVector;                                      //Vector3 of initial position
+        private Vector3 finalVector;                                        //Vector3 of final position
+        private Leg.Flags my_mode;                                          //Attribute of mode type
+        private bool finalized = false;                                     //Indicates if the leg has been finalized
+        private long duration = 0;                                               //Counter of time elapsed
+        private long pause = 0;                                              //Counter of pause time
+        private float speedSum = 0;                                         //Sum of speed recordings
+        private float speedCount = 0;                                       //Counter of speed recordings
+        private long timeBikeLane = 0;                                       //Counter of time on bike lane
+        private DateTime m_startTime;
+        private DateTime m_endTime;
 
-        //CitizenInstance.Flags
-        private bool finalized = false;
-
-        private Vector3 finalVector;
-        private Vector3 initialVector;
-        private Leg.Flags my_mode;
-        private int pause = 0;
-        private float speed = 0;
-        private float speedCount = 0;
-        private float speedSum = 0;
-        private int time = 0;
-        private int timeBikeLane = 0;
-        private float x1 = 0;
-        private float x2 = 0;
-        private float z1 = 0;
-        private float z2 = 0;
-        public Leg(Leg.Flags mode, Vector3 init)
+        public Leg(Leg.Flags mode, Vector3 init)                            //Default Constructor
         {
+            m_startTime = Singleton<SimulationManager>.instance.FrameToTime(Singleton<SimulationManager>.instance.m_currentFrameIndex);
             my_mode = mode;
             initialVector = init;
         }
-
-        [System.Flags]
-        public enum Flags
+        public long getStartingTicks()
         {
-            None = 0,
-            Car = 1,
-            Metro = 2,
-            Train = 4,
-            Ship = 8,
-            Plane = 16,
-            Bicycle = 32,
-            Tram = 64,
-            Walk = 128,
-            Bus = 256,
-            Taxi = 512,
-            Bonus = 1024,
-            All = 2047
+            return m_startTime.Ticks;
         }
-        public void addPause(int t)
+        public void addPause(long t)                                         //Add a 
         {
             if (!finalized)
-                pause = Mathf.Clamp(pause + t, 0, int.MaxValue);
+                pause += t;
         }
-        //Speed of Citizen
         public void addSpeed(float s)
         {
             if (!finalized)
             {
-                speedSum = Mathf.Max(speedSum + s, float.MaxValue);
-                speedCount += 1;
+                speedSum = Mathf.Clamp(speedSum + s, 0, float.MaxValue);
+                speedCount++;
             }
         }
-        public void addTime(int t)
+        public void addTimeOnBikeLane(long t)
         {
             if (!finalized)
-                time = Mathf.Clamp(time + t, 0, int.MaxValue);
+                timeBikeLane += t;
         }
-        public void addTimeOnBikeLane(int t)
+        public float GetDistanceTraveled(Vector3 vec3)
         {
-            if (!finalized)
-                timeBikeLane = Mathf.Clamp(timeBikeLane, 0, int.MaxValue);
-        }
-        public void addVehicalSpeed(float s)
-        {
-            if (!finalized)
+            double sx;
+            double sz;
+            if (finalized)
             {
-                speedSum = Mathf.Max(speedSum + s, float.MaxValue);
-                speedCount += 1;
+                sx = finalVector.x - initialVector.x;
+                sz = finalVector.z - initialVector.z;
             }
+            else
+            {
+                sx = vec3.x - initialVector.x;
+                sz = vec3.z - initialVector.z;
+            }
+            double sv = Math.Sqrt((sx * sx) + (sz * sz));
+            return (float)sv;
+
         }
         public void finalize(Vector3 final)
         {
             finalVector = final;
             finalized = true;
+            duration = Singleton<SimulationManager>.instance.FrameToTime(Singleton<SimulationManager>.instance.m_currentFrameIndex).Ticks - m_startTime.Ticks;
         }
         public float getBikeLaneRatio()
         {
-            if (time != 0)
-                return (timeBikeLane / time);
+            long t = getTime();
+            if (t != 0)
+                return (timeBikeLane / t);
             return 0;
-        }
-        public float? getDeltaX()
-        {
-            if (finalized)
-                return finalVector.x - initialVector.x;
-            else
-                return null;
-        }
-        public float? getDeltaZ()
-        {
-            if (finalized)
-                return finalVector.z - initialVector.z;
-            else
-                return null;
         }
         public Leg.Flags getMode()
         {
             return my_mode;
         }
-        public float getPause()
+        public long getPause()
         {
             return pause;
         }
@@ -162,11 +135,13 @@ namespace GentrifiedSkylines.Detours
                 return speedSum / speedCount;
             return 0;
         }
-        public float getTime()
+        public long getTime()
         {
-            return time;
+            if (finalized)
+                return duration;
+            return (Singleton<SimulationManager>.instance.FrameToTime(Singleton<SimulationManager>.instance.m_currentFrameIndex)).Ticks - m_startTime.Ticks;
         }
-        public int getTimeOnBikeLane()
+        public long getTimeOnBikeLane()
         {
             return timeBikeLane;
         }
@@ -178,6 +153,23 @@ namespace GentrifiedSkylines.Detours
                 return true;
             }
             return false;
+        }
+        [System.Flags]
+        public enum Flags
+        {
+            None = 0,
+            Car = 1,
+            Metro = 2,
+            Train = 4,
+            Ship = 8,
+            Plane = 16,
+            Bicycle = 32,
+            Tram = 64,
+            Walk = 128,
+            Bus = 256,
+            Taxi = 512,
+            Bonus = 1024,
+            All = 2047
         }
     }
 }

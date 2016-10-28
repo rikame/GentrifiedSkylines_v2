@@ -96,7 +96,7 @@ namespace GentrifiedSkylines.Detours
                 }
                 else
                 {
-                    grid3 = TrafficLog.CollectOldRatings();
+                    grid3 = TrafficLog.GetLastGrid();
                 }
                 float accessValue;
                 try
@@ -193,8 +193,7 @@ namespace GentrifiedSkylines.Detours
                 //Solve Single Operator Crash
                 if ((m_name.Length == 1) & ((m_name.EndsWith("+") | m_name.EndsWith("-")) | (m_name.EndsWith("*") | m_name.EndsWith("/"))))
                 {
-                    ChirpPanel chirper = Singleton<ChirpPanel>.instance;
-                    chirper.AddMessage(new ChirpMessage("System", "Invalid Syntax: Cannot Pass Single Operator Token"));
+                    Singleton<ChirpPanel>.instance.AddMessage(new ChirpMessage("System", "Invalid Syntax: Cannot Pass Single Operator Token"));
                     DM.StartCoroutine(DM.SetDistrictName(m_byte, null));
                 }
                 else

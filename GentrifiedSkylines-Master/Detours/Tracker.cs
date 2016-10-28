@@ -10,6 +10,8 @@ namespace GentrifiedSkylines.Detours
         public static bool? flagLandValue;
         public static String[] LandValue;
         public static String[] Operator;
+        public static bool accessibilityLinger = true;
+        public static float accessibilityLingerFactor = (float)0.5;
         private static bool accessibility_active = true;
         private static bool accessibility_source = false;
         private static bool accessibility_target = true;

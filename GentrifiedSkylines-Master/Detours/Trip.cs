@@ -11,16 +11,18 @@ namespace GentrifiedSkylines.Detours
         private Leg.Flags currentVehicleType;
         private uint m_citizen;
         private byte m_current;
-        private CitizenInstance.Flags m_flags;
+        private CitizenInstance.Flags m_flags; //TODO: Determine significance of remaining flags (WaitingTaxi and Transition)
         private byte m_legCount;
         private Leg[] m_legs;
         private ushort m_source;
         private ushort m_target;
         private Leg.Flags previousVehicleType = Leg.Flags.None;
+        private DateTime ticksPrevious;
+        private DateTime ticksCurrent = Singleton<SimulationManager>.instance.FrameToTime(Singleton<SimulationManager>.instance.m_currentFrameIndex);
         private bool valid = true;
         //-----------------------------------------------------------------//
 
-        public Trip(uint citizen, ushort source, ushort target)                      //Default Constructor
+        public Trip(uint citizen, ushort source, ushort target)                                 //Default Constructor
         {
             m_legCount = 0;
             activated = false;
@@ -30,9 +32,10 @@ namespace GentrifiedSkylines.Detours
             m_citizen = citizen;
             //m_flags = Singleton<CitizenManager>.instance.m_instances.m_buffer[m_citizen].m_flags;
         }
-
         public void CitizenStepBroadcasted()                                                    //Effectively called in each HumanAI's SimulationStep() methods
         {
+            ticksPrevious = ticksCurrent;
+            ticksCurrent = Singleton<SimulationManager>.instance.FrameToTime(Singleton<SimulationManager>.instance.m_currentFrameIndex);
             TryAddLeg();    //VERIFY: Test if activation is needed or already handled sufficiently
         }
         public void FinalizeLeg(Vector3 vec)                                                    //Directs this trip's current leg to finalize
@@ -45,7 +48,7 @@ namespace GentrifiedSkylines.Detours
         }
         public float GetContribution()                                                          //Calculate and return the overall rating contribution of this trip
         {
-            return 7;   //TODO: Write this method eventually by cycling through legs and determining individual value, aggregate value, hangup penalties and so-on
+            return 7;       //TODO: Cycle through legs and determining individual value, aggregate value, hangup penalties and so-on
         }
         public byte GetLegCount()                                                               //Get the number of legs in this trip
         {
@@ -90,6 +93,20 @@ namespace GentrifiedSkylines.Detours
         {
             return valid;
         }
+        public void ResetTrip()                                                                 //Reset a trip (Mistakenly written, likely will never be used)
+        {
+            activated = false;
+            currentVehicleType = Leg.Flags.None;
+            m_citizen = 0;
+            m_current = 0;
+            m_flags = CitizenInstance.Flags.None;
+            m_legCount = 0;
+            m_legs = new Leg[0];
+            m_source = 0;
+            m_target = 0;
+            previousVehicleType = Leg.Flags.None;
+            valid = false;
+        }
         public void SetSource(ushort s)                                                         //Set the arbitrary ID of this trip's source
         {
             m_source = s;
@@ -105,6 +122,7 @@ namespace GentrifiedSkylines.Detours
             {
                 if (CheckNewVehicle())                                  //If the CI has a new vehicle
                 {
+                    FinalizeLeg(GetMyPosition());
                     AddLeg();                                               //[New]
                     previousVehicleType = currentVehicleType;               //Update previousVehicleType
                 }
@@ -114,14 +132,10 @@ namespace GentrifiedSkylines.Detours
             }
             UpdateMyFlags(t_flags);                                 //Update m_flags for next cycle
         }
-        private void AddLeg()                                         //Attempt to add a Leg to this trip
+        private void AddLeg()                                                                   //Attempt to add a Leg to this trip
         {
             //Activate if not yet activated
-            if (activated)
-            {
-                //
-            }
-            else
+            if (!activated)
             {
                 activated = true;
             }
@@ -282,7 +296,7 @@ namespace GentrifiedSkylines.Detours
         }
         private void CheckHangups()                                                             //Verifies that the leg was created correctly and either closes or invalidates the leg or the trip
         {
-            //TODO: Write the CheckHangups() method.
+            //Unsure                                                                            //TODO: Write the CheckHangups() method.
         }
         private bool CheckMoving()                                                              //Queries and returns bool of if the citizen is moving
         {
@@ -377,6 +391,12 @@ namespace GentrifiedSkylines.Detours
                 return GetVehiclePosition();
             return GetCitizenPosition();
         }
+        private Vector3 GetMyVelocity()                                                         //Returns this trip's citizen's velocity or its vehicle velocity, if applicable
+        {
+            if (GetValidVehicle())
+                return GetVehicleVelocity();
+            return GetCitizenVelocity();
+        }
         private Vehicle GetMyVehicle()                                                          //Returns this trip's citizen's vehicle
         {
             return Singleton<VehicleManager>.instance.m_vehicles.m_buffer[Singleton<CitizenManager>.instance.m_citizens.m_buffer[m_citizen].m_vehicle];
@@ -415,13 +435,17 @@ namespace GentrifiedSkylines.Detours
         {
             if (activated && m_legs[m_current].getMode() != Leg.Flags.None)     //Check if current leg has been initialized
             {
-                m_legs[m_current].addTime(1);                                   //Check for modes needing updating
+                long tickInterval = ticksCurrent.Ticks - ticksPrevious.Ticks;
+                double sx = GetMyVelocity().x;
+                double sz = GetMyVelocity().z;
+                double sv = Math.Sqrt((sx*sx) + (sz*sz));
+                m_legs[m_current].addSpeed((float)sv);
                 switch (m_legs[m_current].getMode())                            //TODO: Write MediateMode() cases to record data
                 {                                                               //TODO: Determine what needs to be done for each Leg.Flags case in MediateMode()
                     case Leg.Flags.Bicycle:
                         if ((m_flags & CitizenInstance.Flags.OnBikeLane) != CitizenInstance.Flags.None)
                         {
-                            m_legs[m_current].addTimeOnBikeLane(1);
+                            m_legs[m_current].addTimeOnBikeLane(tickInterval);
                         }
                         break;
 
@@ -456,9 +480,18 @@ namespace GentrifiedSkylines.Detours
             }
             return false;
         }
-        private void UpdateMyFlags(CitizenInstance.Flags t_flags)
+        private void UpdateMyFlags(CitizenInstance.Flags t_flags)                               //Update flags upon simulation step
         {
             m_flags = t_flags;
+        }
+        public float GetDistanceTraveled()
+        {
+            float f = 0;
+            for (int i = 0; i < m_legCount; i++)
+            {
+                f += m_legs[i].GetDistanceTraveled(GetMyPosition());
+            }
+            return f;
         }
     }
 }

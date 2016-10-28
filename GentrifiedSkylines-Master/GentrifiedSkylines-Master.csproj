@@ -55,10 +55,12 @@
     <Compile Include="Detours\BuildingTrafficLog.cs" />
     <Compile Include="Detours\ChirpMessage.cs" />
     <Compile Include="Detours\CommonBuildingAI.cs" />
+    <Compile Include="Detours\GentrificationManager.cs" />
     <Compile Include="Detours\HumanAI.cs" />
     <Compile Include="Detours\ImmaterialRM.cs" />
     <Compile Include="Detours\Leg.cs" />
     <Compile Include="Detours\PrivateBuildingAI.cs" />
+    <Compile Include="Detours\ResidentAI.cs" />
     <Compile Include="Detours\Tracker.cs" />
     <Compile Include="Detours\TrafficLog.cs" />
     <Compile Include="Detours\Trip.cs" />
